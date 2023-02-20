@@ -1,0 +1,276 @@
+---
+title: "ps5-markdown-plot"
+author: "selina"
+date: "2/13/2023"
+output: html_document
+---
+
+1. Load and check data
+```{r}
+getwd()
+library(tidyverse)
+gapminder <- read_delim("gapminder.csv.bz2")
+```
+(2). The _gapminder_ data contained `r nrow(gapminder)` rows and `r ncol(gapminder)` columns. 
+
+(3):
+```{r}
+gapminder %>% 
+  sample_n(5)
+```
+
+
+2. Descriptive statistics
+
+(1). For 3-letter country code, there are `r length(unique(gapminder$iso3))` countries; for 2-letter country code, there are `r length(unique(gapminder$iso2))` countries; and for names, there are `r length(unique(gapminder$name))` countries. 
+
+(2). (a)
+```{r}
+gapminder %>%
+  group_by(name, iso2) %>% 
+  summarise(n_distinct(iso2), n()) %>%
+  arrange(desc(n()))
+```
+
+(b)
+```{r}
+gapminder %>%
+  group_by(name, iso3) %>% 
+  summarise(n_distinct(iso3), n()) %>%
+  arrange(desc(n()))
+```
+
+(3). 
+```{r}
+min <- gapminder %>% 
+  filter(!is.na(time)) %>% 
+  summarise(n = min(time))
+```
+
+```{r}
+max <- gapminder %>% 
+  filter(!is.na(time)) %>% 
+  summarise(n = max(time))
+```
+
+The minimum year in the data is `r min` and the maximum is `r max`. 
+
+3. CO2 emossions 
+
+(1)
+```{r}
+missing_co2 <- gapminder %>% 
+  filter(is.na(co2)) %>% 
+  group_by(time) %>% 
+  summarise(n())
+```
+
+```{r}
+missing_co2pc <- gapminder %>% 
+  filter(is.na(co2_PC)) %>% 
+  group_by(time) %>% 
+  summarise(n())
+```
+
+1960 has the most missing data. 
+
+(2). 
+```{r}
+gapminder %>% 
+  filter(!is.na(co2)) %>% 
+  filter(iso2 == "US" |
+           name == "China" |
+           name == "India" |
+           name == "Japan") %>% 
+  ggplot(aes(time, co2, col=factor(name))) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Time", y = "CO2", 
+       col = "Country")
+```
+
+I can see that China has the most emssion during after 2000, and U.S has the relatively more emission
+than those countries before that. 
+
+(3)
+```{r}
+gapminder %>% 
+  filter(!is.na(co2_PC)) %>% 
+  filter(iso2 == "US" |
+           name == "China" |
+           name == "India" |
+           name == "Japan") %>% 
+  ggplot(aes(time, co2_PC, col=factor(name))) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Time", y = "CO2_PC", 
+       col = "Country")
+```
+
+There is a huge different between emission per capital than just emission. U.S now has 
+the most ammount of emission per capital than other three countries. 
+
+(4)
+```{r}
+gapminder %>% 
+  filter(!is.na(co2_PC),
+         time == 2016) %>% 
+  group_by(region) %>% 
+  summarize(mean(co2_PC))
+```
+I can see that Africa has the lowest average emission per capital, and Oceania
+has the highest among the continents. 
+
+(5) 
+```{r}
+gapminder %>% 
+  filter(time %in% c(1960, 2016),
+         !is.na(co2_PC),
+         !is.na(region)) %>% 
+  group_by(region, time) %>% 
+  summarize(avg = mean(co2_PC)) %>% 
+  ggplot(aes(region, avg, fill = as.factor(time))) +
+  geom_col(position = "dodge")
+```
+
+6. 
+```{r}
+gapminder %>%
+  filter(!is.na(co2_PC),
+         !is.na(region)) %>% 
+  group_by(region, name, .add = TRUE) %>%
+  summarize(n()) %>% 
+  group_split(region)
+```
+
+4. GDP per capital 
+(1) 
+```{r}
+gapminder %>% 
+  filter(time == 1960,
+         !is.na(GDP_PC),
+         !is.na(lifeExpectancy)) %>% 
+  ggplot() +
+  geom_point(aes(lifeExpectancy, GDP_PC, col = region, size = totalPopulation))
+```
+This scatterplot shows that European countries have relatively higher GDP per capital
+and higher life expectancy. Asian countries have bigger size. 
+
+
+(2)
+```{r}
+gapminder %>% 
+  filter(time == 2019,
+         !is.na(GDP_PC),
+         !is.na(lifeExpectancy)) %>% 
+  ggplot() +
+  geom_point(aes(lifeExpectancy, GDP_PC, col = region, size = totalPopulation))
+```
+
+(3)
+Comparing the two graphs, we can see that most of the countries increased their 
+life expectancy, but the GDP per capital hasn't really differed from back then. 
+
+(4)
+```{r}
+gapminder %>%
+  filter(!is.na(lifeExpectancy),
+         !is.na(region),
+         time == 1960) %>% 
+  group_by(region) %>%
+  summarize(avg = mean(lifeExpectancy))
+```
+
+```{r}
+gapminder %>%
+  filter(!is.na(lifeExpectancy),
+         !is.na(region),
+         time == 2019) %>% 
+  group_by(region) %>%
+  summarize(avg = mean(lifeExpectancy))
+```
+I think the result pretty much matches the graphs that I computed above. 
+
+(5)
+```{r}
+gapminder %>% 
+  group_by(region, time) %>% 
+  filter(!is.na(lifeExpectancy),
+         !is.na(region)) %>% 
+  summarize(avg = mean(lifeExpectancy)) %>% 
+  arrange(start = 1960, end = 2019,
+          rank(avg)) %>% 
+  ungroup() %>% 
+  mutate(growth = avg - lag(avg)) %>% 
+  group_split(region)
+```
+
+I can see that for all of the continents, there is growth in life expectancy
+within the year of 1960 to 2019. 
+
+(6)
+```{r}
+gapminder %>% 
+  filter(time %in% c(1960, 2016),
+         !is.na(GDP_PC)) %>% 
+  ggplot(aes(region, GDP_PC, fill = as.factor(time))) +
+  geom_col(position = "dodge")
+```
+
+(7)
+```{r}
+gapminder %>%
+  filter(time == 1960,
+         !is.na(lifeExpectancy),
+         !is.na(region)) %>%
+  mutate(rank = rank(desc(lifeExpectancy))) %>% 
+  select(name, lifeExpectancy, rank) %>% 
+  filter(name == "United States of America")
+```
+
+
+
+
+```{r}
+gapminder %>%
+  filter(time == 2019,
+         !is.na(lifeExpectancy),
+         !is.na(region)) %>%
+  mutate(rank = rank(desc(lifeExpectancy))) %>% 
+  select(name, lifeExpectancy, rank) %>% 
+  filter(name == "United States of America")
+```
+
+(8)
+```{r}
+gapminder %>%
+  filter(time == 1960,
+         !is.na(lifeExpectancy),
+         !is.na(region)) %>%
+  mutate(rank = rank(desc(lifeExpectancy))) %>% 
+  mutate(relative = rank /n_distinct(name)) %>% 
+  select(name, lifeExpectancy, rank, relative) %>% 
+  filter(name == "United States of America")
+```
+
+```{r}
+gapminder %>%
+  filter(time == 2019,
+         !is.na(lifeExpectancy),
+         !is.na(region)) %>%
+  mutate(rank = rank(desc(lifeExpectancy))) %>% 
+  mutate(relative = rank /n_distinct(name)) %>% 
+  select(name, lifeExpectancy, rank, relative) %>% 
+  filter(name == "United States of America")
+```
+
+
+
+
+
+
+
+
+
+
+
